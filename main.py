@@ -28,19 +28,71 @@ def display_menu(current_dir):
 
 # --- Menu Option Placeholders ---
 
-def list_files():
-    """Placeholder: List files in the current directory."""
-    print("\n[Placeholder] Option 1 selected: Listing files in the current directory...")
+def list_files(current_dir):
+    """List all files and folders in the current directory with their type clearly shown."""
+    print()
+    try:
+        # scandir is highly efficient as it gets entry types directly without extra stat calls
+        with os.scandir(current_dir) as entries:
+            items = sorted(entries, key=lambda e: (not e.is_dir(), e.name.lower()))
+            if not items:
+                print("The directory is empty.")
+                return
+            
+            # Print a clean, beautifully formatted header
+            print(f"{'Name':<40} | {'Type':<10}")
+            print("-" * 55)
+            for entry in items:
+                item_type = "[Folder]" if entry.is_dir() else "[File]"
+                print(f"{entry.name:<40} | {item_type:<10}")
+    except PermissionError:
+        print("[Error] Permission denied to read this directory.")
+    except FileNotFoundError:
+        print("[Error] The current directory does not exist.")
+    except Exception as e:
+        print(f"[Error] Failed to list directory: {e}")
 
 
-def navigate_to_folder():
-    """Placeholder: Navigate to a folder."""
-    print("\n[Placeholder] Option 2 selected: Navigating to a folder...")
+def navigate_to_folder(current_dir):
+    """Let the user type a folder name to navigate into it, with graceful error handling."""
+    print()
+    folder_name = input("Enter folder name or path to navigate to: ").strip()
+    if not folder_name:
+        print("[Error] Folder name cannot be empty.")
+        return current_dir
+
+    # Support navigating to absolute or relative paths
+    target_dir = os.path.abspath(os.path.join(current_dir, folder_name))
+
+    if not os.path.exists(target_dir):
+        print(f"[Error] The path '{folder_name}' does not exist.")
+        return current_dir
+    if not os.path.isdir(target_dir):
+        print(f"[Error] '{folder_name}' is not a directory.")
+        return current_dir
+
+    # Verify we have permission/can read it
+    try:
+        os.listdir(target_dir)
+    except PermissionError:
+        print(f"[Error] Permission denied to access folder '{folder_name}'.")
+        return current_dir
+    except Exception as e:
+        print(f"[Error] Cannot access folder '{folder_name}': {e}")
+        return current_dir
+
+    print(f"Successfully navigated to: {target_dir}")
+    return target_dir
 
 
-def go_up_directory():
-    """Placeholder: Go up one directory."""
-    print("\n[Placeholder] Option 3 selected: Going up one directory...")
+def go_up_directory(current_dir):
+    """Move up one directory level."""
+    parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
+    if parent_dir == current_dir:
+        print("\nAlready at the root directory.")
+    else:
+        print(f"\nMoved up to: {parent_dir}")
+    return parent_dir
 
 
 def view_file():
@@ -87,11 +139,11 @@ def main():
 
         # Dispatch user choices to their corresponding handler functions
         if choice == "1":
-            list_files()
+            list_files(current_dir)
         elif choice == "2":
-            navigate_to_folder()
+            current_dir = navigate_to_folder(current_dir)
         elif choice == "3":
-            go_up_directory()
+            current_dir = go_up_directory(current_dir)
         elif choice == "4":
             view_file()
         elif choice == "5":
