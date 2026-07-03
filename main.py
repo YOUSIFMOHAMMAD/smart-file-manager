@@ -95,19 +95,63 @@ def go_up_directory(current_dir):
     return parent_dir
 
 
-def view_file():
-    """Placeholder: View a file's contents."""
-    print("\n[Placeholder] Option 4 selected: Viewing a file...")
+def view_file(current_dir):
+    """Display the contents of a text file the user selects."""
+    filename = input("Enter filename to view: ").strip()
+    path = os.path.join(current_dir, filename)
+    if not os.path.isfile(path):
+        print(f"[Error] '{filename}' is not a valid file.")
+        return
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            print(f"\n--- Contents of {filename} ---\n")
+            print(f.read())
+            print(f"\n--- End of {filename} ---")
+    except PermissionError:
+        print("[Error] Permission denied.")
+    except Exception as e:
+        print(f"[Error] Could not read file: {e}")
 
 
-def rename_file():
-    """Placeholder: Rename a file."""
-    print("\n[Placeholder] Option 5 selected: Renaming a file...")
+def rename_file(current_dir):
+    """Rename a file, asking for confirmation before proceeding."""
+    filename = input("Enter current filename: ").strip()
+    path = os.path.join(current_dir, filename)
+    if not os.path.isfile(path):
+        print(f"[Error] '{filename}' not found.")
+        return
+    new_name = input("Enter new filename: ").strip()
+    if not new_name:
+        print("[Error] Name cannot be empty.")
+        return
+    confirm = input(f"Rename '{filename}' to '{new_name}'? (y/n): ").lower()
+    if confirm == 'y':
+        try:
+            os.rename(path, os.path.join(current_dir, new_name))
+            print("Renamed successfully.")
+        except Exception as e:
+            print(f"[Error] Rename failed: {e}")
+    else:
+        print("Renaming cancelled.")
 
 
-def delete_file():
-    """Placeholder: Deleting a file."""
-    print("\n[Placeholder] Option 6 selected: Deleting a file...")
+def delete_file(current_dir):
+    """Delete a file, but only after showing the filename and requiring the user to type 'yes' to confirm."""
+    filename = input("Enter filename to delete: ").strip()
+    path = os.path.join(current_dir, filename)
+    if not os.path.isfile(path):
+        print(f"[Error] '{filename}' not found.")
+        return
+    confirm = input(f"WARNING: Are you sure you want to delete '{filename}'? Type 'yes' to confirm: ").strip()
+    if confirm == 'yes':
+        try:
+            os.remove(path)
+            print("Deleted successfully.")
+        except Exception as e:
+            print(f"[Error] Deletion failed: {e}")
+    else:
+        print("Deletion cancelled.")
+
 
 
 def categorize_files():
@@ -145,11 +189,11 @@ def main():
         elif choice == "3":
             current_dir = go_up_directory(current_dir)
         elif choice == "4":
-            view_file()
+            view_file(current_dir)
         elif choice == "5":
-            rename_file()
+            rename_file(current_dir)
         elif choice == "6":
-            delete_file()
+            delete_file(current_dir)
         elif choice == "7":
             categorize_files()
         elif choice == "8":

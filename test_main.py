@@ -6,7 +6,7 @@ from unittest.mock import patch
 import io
 
 # Import the functions under test
-from main import list_files, navigate_to_folder, go_up_directory
+from main import list_files, navigate_to_folder, go_up_directory, view_file, rename_file, delete_file
 
 
 class TestSmartFileManager(unittest.TestCase):
@@ -103,6 +103,48 @@ class TestSmartFileManager(unittest.TestCase):
         parent = go_up_directory(root)
         self.assertEqual(parent, root)
         self.assertIn("Already at the root directory.", mock_stdout.getvalue())
+
+    @patch("builtins.input", return_value="file1.txt")
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_view_file_success(self, mock_stdout, mock_input):
+        view_file(self.test_dir)
+        output = mock_stdout.getvalue()
+        self.assertIn("test content", output)
+
+    @patch("builtins.input", return_value="non_existent.txt")
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_view_file_failure(self, mock_stdout, mock_input):
+        view_file(self.test_dir)
+        output = mock_stdout.getvalue()
+        self.assertIn("[Error]", output)
+
+    @patch("builtins.input", side_effect=["file1.txt", "new_name.txt", "y"])
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_rename_file_success(self, mock_stdout, mock_input):
+        rename_file(self.test_dir)
+        self.assertTrue(os.path.exists(os.path.join(self.test_dir, "new_name.txt")))
+        self.assertFalse(os.path.exists(self.file1))
+
+    @patch("builtins.input", side_effect=["file1.txt", "new_name.txt", "n"])
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_rename_file_cancel(self, mock_stdout, mock_input):
+        rename_file(self.test_dir)
+        self.assertTrue(os.path.exists(self.file1))
+        self.assertIn("Renaming cancelled.", mock_stdout.getvalue())
+
+    @patch("builtins.input", side_effect=["file1.txt", "yes"])
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_delete_file_success(self, mock_stdout, mock_input):
+        delete_file(self.test_dir)
+        self.assertFalse(os.path.exists(self.file1))
+        self.assertIn("Deleted successfully.", mock_stdout.getvalue())
+
+    @patch("builtins.input", side_effect=["file1.txt", "no"])
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_delete_file_cancel(self, mock_stdout, mock_input):
+        delete_file(self.test_dir)
+        self.assertTrue(os.path.exists(self.file1))
+        self.assertIn("Deletion cancelled.", mock_stdout.getvalue())
 
 
 if __name__ == "__main__":
