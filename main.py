@@ -154,9 +154,68 @@ def delete_file(current_dir):
 
 
 
-def categorize_files():
-    """Placeholder: Categorize files in the current directory."""
-    print("\n[Placeholder] Option 7 selected: Categorizing files...")
+def get_categorized_files(current_dir):
+    """
+    Scans the directory and returns a dictionary grouping filenames by category.
+    Categories:
+    - "Documents/Text"
+    - "Scripts/Code"
+    - "Images"
+    - "Directories"
+    - "Other"
+    """
+    categories = {
+        "Documents/Text": [],
+        "Scripts/Code": [],
+        "Images": [],
+        "Directories": [],
+        "Other": []
+    }
+    
+    with os.scandir(current_dir) as entries:
+        for entry in entries:
+            if entry.is_dir():
+                categories["Directories"].append(entry.name)
+            else:
+                _, ext = os.path.splitext(entry.name)
+                ext = ext.lower()
+                if ext in ['.txt', '.doc', '.docx', '.pdf']:
+                    categories["Documents/Text"].append(entry.name)
+                elif ext in ['.py', '.js', '.sh', '.c', '.java']:
+                    categories["Scripts/Code"].append(entry.name)
+                elif ext in ['.jpg', '.png', '.gif', '.bmp']:
+                    categories["Images"].append(entry.name)
+                else:
+                    categories["Other"].append(entry.name)
+                    
+    # Sort files within each category case-insensitively for clean display
+    for cat in categories:
+        categories[cat].sort(key=str.lower)
+        
+    return categories
+
+
+def categorize_files(current_dir):
+    """Scan all files in the current directory and group them into categories based on their extensions."""
+    print()
+    try:
+        categorized = get_categorized_files(current_dir)
+        print("File Categorization Results:")
+        print("-" * 30)
+        for category, files in categorized.items():
+            print(f"[{category}]")
+            if not files:
+                print("  (No items)")
+            else:
+                for filename in files:
+                    print(f"  - {filename}")
+            print()
+    except PermissionError:
+        print("[Error] Permission denied to read this directory.")
+    except FileNotFoundError:
+        print("[Error] The current directory does not exist.")
+    except Exception as e:
+        print(f"[Error] Failed to categorize files: {e}")
 
 
 def find_duplicate_files():
@@ -195,7 +254,7 @@ def main():
         elif choice == "6":
             delete_file(current_dir)
         elif choice == "7":
-            categorize_files()
+            categorize_files(current_dir)
         elif choice == "8":
             find_duplicate_files()
         elif choice == "9":

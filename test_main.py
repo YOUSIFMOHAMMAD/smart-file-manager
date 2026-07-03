@@ -6,7 +6,7 @@ from unittest.mock import patch
 import io
 
 # Import the functions under test
-from main import list_files, navigate_to_folder, go_up_directory, view_file, rename_file, delete_file
+from main import list_files, navigate_to_folder, go_up_directory, view_file, rename_file, delete_file, get_categorized_files, categorize_files
 
 
 class TestSmartFileManager(unittest.TestCase):
@@ -146,6 +146,86 @@ class TestSmartFileManager(unittest.TestCase):
         self.assertTrue(os.path.exists(self.file1))
         self.assertIn("Deletion cancelled.", mock_stdout.getvalue())
 
+    def test_get_categorized_files_success(self):
+        # Create a special directory structure to verify categorization
+        cat_dir = tempfile.mkdtemp(dir=self.test_dir)
+        
+        # Documents/Text
+        open(os.path.join(cat_dir, "doc1.pdf"), "w").close()
+        open(os.path.join(cat_dir, "doc2.TXT"), "w").close()  # check case-insensitivity
+        open(os.path.join(cat_dir, "doc3.doc"), "w").close()
+        open(os.path.join(cat_dir, "doc4.docx"), "w").close()
+        
+        # Scripts/Code
+        open(os.path.join(cat_dir, "script1.py"), "w").close()
+        open(os.path.join(cat_dir, "script2.js"), "w").close()
+        open(os.path.join(cat_dir, "script3.sh"), "w").close()
+        open(os.path.join(cat_dir, "script4.c"), "w").close()
+        open(os.path.join(cat_dir, "script5.java"), "w").close()
+        
+        # Images
+        open(os.path.join(cat_dir, "img1.png"), "w").close()
+        open(os.path.join(cat_dir, "img2.JPG"), "w").close()  # check case-insensitivity
+        open(os.path.join(cat_dir, "img3.gif"), "w").close()
+        open(os.path.join(cat_dir, "img4.bmp"), "w").close()
+        
+        # Other
+        open(os.path.join(cat_dir, "archive.zip"), "w").close()
+        open(os.path.join(cat_dir, "config.ini"), "w").close()
+        open(os.path.join(cat_dir, "no_ext_file"), "w").close()
+        
+        # Directories
+        os.mkdir(os.path.join(cat_dir, "sub_folder_x"))
+        os.mkdir(os.path.join(cat_dir, "sub_folder_y"))
+        
+        categories = get_categorized_files(cat_dir)
+        
+        # Verify correctness and sorting (sorting is case-insensitive, but we can check actual sorted output)
+        self.assertEqual(sorted(categories["Documents/Text"], key=str.lower), categories["Documents/Text"])
+        self.assertEqual(sorted(categories["Scripts/Code"], key=str.lower), categories["Scripts/Code"])
+        self.assertEqual(sorted(categories["Images"], key=str.lower), categories["Images"])
+        self.assertEqual(sorted(categories["Directories"], key=str.lower), categories["Directories"])
+        self.assertEqual(sorted(categories["Other"], key=str.lower), categories["Other"])
+        
+        # Verify elements are in the expected list (using set comparisons since case-insensitive sorting is verified)
+        self.assertEqual(set(categories["Documents/Text"]), {"doc1.pdf", "doc2.TXT", "doc3.doc", "doc4.docx"})
+        self.assertEqual(set(categories["Scripts/Code"]), {"script1.py", "script2.js", "script3.sh", "script4.c", "script5.java"})
+        self.assertEqual(set(categories["Images"]), {"img1.png", "img2.JPG", "img3.gif", "img4.bmp"})
+        self.assertEqual(set(categories["Directories"]), {"sub_folder_x", "sub_folder_y"})
+        self.assertEqual(set(categories["Other"]), {"archive.zip", "config.ini", "no_ext_file"})
 
-if __name__ == "__main__":
+    def test_get_categorized_files_empty(self):
+        empty_dir = tempfile.mkdtemp(dir=self.test_dir)
+        categories = get_categorized_files(empty_dir)
+        for cat in categories:
+            self.assertEqual(categories[cat], [])
+
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_categorize_files_success(self, mock_stdout):
+        # We can run on self.test_dir (which has folder_a, folder_b, and file1.txt)
+        categorize_files(self.test_dir)
+        output = mock_stdout.getvalue()
+        
+        # Should contain headings
+        self.assertIn("[Documents/Text]", output)
+        self.assertIn("[Scripts/Code]", output)
+        self.assertIn("[Images]", output)
+        self.assertIn("[Directories]", output)
+        self.assertIn("[Other]", output)
+        
+        # Should show folder_a, folder_b, and file1.txt under their respective headings
+        self.assertIn("- folder_a", output)
+        self.assertIn("- folder_b", output)
+        self.assertIn("- file1.txt", output)
+        self.assertIn("(No items)", output)  # since some categories are empty
+
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_categorize_files_non_existent(self, mock_stdout):
+        non_existent_dir = os.path.join(self.test_dir, "does_not_exist")
+        categorize_files(non_existent_dir)
+        output = mock_stdout.getvalue()
+        self.assertIn("[Error]", output)
+
+
+if __name__ == "__main__" :
     unittest.main()
