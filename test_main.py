@@ -6,7 +6,7 @@ from unittest.mock import patch
 import io
 
 # Import the functions under test
-from main import list_files, navigate_to_folder, go_up_directory, view_file, rename_file, delete_file, get_categorized_files, categorize_files
+from main import list_files, navigate_to_folder, go_up_directory, view_file, rename_file, delete_file, get_categorized_files, categorize_files, find_duplicates, find_duplicate_files
 
 
 class TestSmartFileManager(unittest.TestCase):
@@ -168,6 +168,11 @@ class TestSmartFileManager(unittest.TestCase):
         open(os.path.join(cat_dir, "img2.JPG"), "w").close()  # check case-insensitivity
         open(os.path.join(cat_dir, "img3.gif"), "w").close()
         open(os.path.join(cat_dir, "img4.bmp"), "w").close()
+
+        # Videos
+        open(os.path.join(cat_dir, "vid1.mp4"), "w").close()
+        open(os.path.join(cat_dir, "vid2.MKV"), "w").close()
+        open(os.path.join(cat_dir, "vid3.avi"), "w").close()
         
         # Other
         open(os.path.join(cat_dir, "archive.zip"), "w").close()
@@ -184,13 +189,15 @@ class TestSmartFileManager(unittest.TestCase):
         self.assertEqual(sorted(categories["Documents/Text"], key=str.lower), categories["Documents/Text"])
         self.assertEqual(sorted(categories["Scripts/Code"], key=str.lower), categories["Scripts/Code"])
         self.assertEqual(sorted(categories["Images"], key=str.lower), categories["Images"])
+        self.assertEqual(sorted(categories["Videos"], key=str.lower), categories["Videos"])
         self.assertEqual(sorted(categories["Directories"], key=str.lower), categories["Directories"])
         self.assertEqual(sorted(categories["Other"], key=str.lower), categories["Other"])
         
-        # Verify elements are in the expected list (using set comparisons since case-insensitive sorting is verified)
+        # Verify elements are in the expected list
         self.assertEqual(set(categories["Documents/Text"]), {"doc1.pdf", "doc2.TXT", "doc3.doc", "doc4.docx"})
         self.assertEqual(set(categories["Scripts/Code"]), {"script1.py", "script2.js", "script3.sh", "script4.c", "script5.java"})
         self.assertEqual(set(categories["Images"]), {"img1.png", "img2.JPG", "img3.gif", "img4.bmp"})
+        self.assertEqual(set(categories["Videos"]), {"vid1.mp4", "vid2.MKV", "vid3.avi"})
         self.assertEqual(set(categories["Directories"]), {"sub_folder_x", "sub_folder_y"})
         self.assertEqual(set(categories["Other"]), {"archive.zip", "config.ini", "no_ext_file"})
 
@@ -210,6 +217,7 @@ class TestSmartFileManager(unittest.TestCase):
         self.assertIn("[Documents/Text]", output)
         self.assertIn("[Scripts/Code]", output)
         self.assertIn("[Images]", output)
+        self.assertIn("[Videos]", output)
         self.assertIn("[Directories]", output)
         self.assertIn("[Other]", output)
         
@@ -217,7 +225,7 @@ class TestSmartFileManager(unittest.TestCase):
         self.assertIn("- folder_a", output)
         self.assertIn("- folder_b", output)
         self.assertIn("- file1.txt", output)
-        self.assertIn("(No items)", output)  # since some categories are empty
+        self.assertIn("(No items)", output)
 
     @patch("sys.stdout", new_callable=io.StringIO)
     def test_categorize_files_non_existent(self, mock_stdout):
@@ -225,6 +233,56 @@ class TestSmartFileManager(unittest.TestCase):
         categorize_files(non_existent_dir)
         output = mock_stdout.getvalue()
         self.assertIn("[Error]", output)
+
+    def test_find_duplicates_logic(self):
+        dup_dir = tempfile.mkdtemp(dir=self.test_dir)
+        
+        # Create duplicate content files
+        with open(os.path.join(dup_dir, "file1.txt"), "w") as f: f.write("contentA")
+        with open(os.path.join(dup_dir, "file2.txt"), "w") as f: f.write("contentA")
+        
+        with open(os.path.join(dup_dir, "file3.jpg"), "w") as f: f.write("contentB")
+        with open(os.path.join(dup_dir, "file4.jpg"), "w") as f: f.write("contentB")
+        with open(os.path.join(dup_dir, "file5.jpg"), "w") as f: f.write("contentB")
+        
+        # Unique file
+        with open(os.path.join(dup_dir, "unique.txt"), "w") as f: f.write("contentC")
+        
+        duplicates = find_duplicates(dup_dir)
+        
+        # Should find 2 groups (contentA, contentB)
+        self.assertEqual(len(duplicates), 2)
+        
+        # Verify contentA duplicates
+        for h, files in duplicates.items():
+            if len(files) == 2:
+                self.assertEqual(set(files), {"file1.txt", "file2.txt"})
+            elif len(files) == 3:
+                self.assertEqual(set(files), {"file3.jpg", "file4.jpg", "file5.jpg"})
+            else:
+                self.fail(f"Unexpected duplicate group size: {len(files)}")
+
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_find_duplicate_files_output(self, mock_stdout):
+        # Use a new directory
+        dup_dir = tempfile.mkdtemp(dir=self.test_dir)
+        with open(os.path.join(dup_dir, "dup1.txt"), "w") as f: f.write("dup")
+        with open(os.path.join(dup_dir, "dup2.txt"), "w") as f: f.write("dup")
+        
+        find_duplicate_files(dup_dir)
+        output = mock_stdout.getvalue()
+        self.assertIn("Duplicate Files Found:", output)
+        self.assertIn("Group 1 [MD5:", output)
+        self.assertIn("- dup1.txt", output)
+        self.assertIn("- dup2.txt", output)
+
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_find_duplicate_files_none(self, mock_stdout):
+        empty_dir = tempfile.mkdtemp(dir=self.test_dir)
+        find_duplicate_files(empty_dir)
+        output = mock_stdout.getvalue()
+        self.assertIn("No duplicate files found in this directory.", output)
+
 
 
 if __name__ == "__main__" :

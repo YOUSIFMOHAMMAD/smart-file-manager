@@ -6,6 +6,7 @@ An interactive command-line utility to browse, navigate, and manage files.
 
 import os
 import sys
+import hashlib
 
 def display_menu(current_dir):
     """
@@ -161,6 +162,7 @@ def get_categorized_files(current_dir):
     - "Documents/Text"
     - "Scripts/Code"
     - "Images"
+    - "Videos"
     - "Directories"
     - "Other"
     """
@@ -168,6 +170,7 @@ def get_categorized_files(current_dir):
         "Documents/Text": [],
         "Scripts/Code": [],
         "Images": [],
+        "Videos": [],
         "Directories": [],
         "Other": []
     }
@@ -185,6 +188,8 @@ def get_categorized_files(current_dir):
                     categories["Scripts/Code"].append(entry.name)
                 elif ext in ['.jpg', '.png', '.gif', '.bmp']:
                     categories["Images"].append(entry.name)
+                elif ext in ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv']:
+                    categories["Videos"].append(entry.name)
                 else:
                     categories["Other"].append(entry.name)
                     
@@ -218,9 +223,60 @@ def categorize_files(current_dir):
         print(f"[Error] Failed to categorize files: {e}")
 
 
-def find_duplicate_files():
-    """Placeholder: Find duplicate files."""
-    print("\n[Placeholder] Option 8 selected: Finding duplicate files...")
+def calculate_md5(file_path):
+    """Calculate the MD5 hash for a file's content, reading in chunks to conserve memory."""
+    hash_md5 = hashlib.md5()
+    try:
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    except Exception:
+        return None
+
+
+def find_duplicates(current_dir):
+    """
+    Scan all files in the current directory, calculate MD5 hash for each file's content,
+    and return a dictionary grouping files sharing the same hash (only groups with duplicates are returned).
+    """
+    hash_map = {}
+    with os.scandir(current_dir) as entries:
+        for entry in entries:
+            if entry.is_file():
+                file_hash = calculate_md5(entry.path)
+                if file_hash:
+                    hash_map.setdefault(file_hash, []).append(entry.name)
+                    
+    # Filter out entries that do not have any duplicates (i.e., list length <= 1)
+    duplicates = {h: sorted(files, key=str.lower) for h, files in hash_map.items() if len(files) > 1}
+    return duplicates
+
+
+def find_duplicate_files(current_dir):
+    """Scan the current directory for duplicate files based on content hashes and display them."""
+    print()
+    try:
+        duplicates = find_duplicates(current_dir)
+        if not duplicates:
+            print("No duplicate files found in this directory.")
+            return
+            
+        print("Duplicate Files Found:")
+        print("-" * 30)
+        group_num = 1
+        for file_hash, files in sorted(duplicates.items()):
+            print(f"Group {group_num} [MD5: {file_hash}]:")
+            for filename in files:
+                print(f"  - {filename}")
+            print()
+            group_num += 1
+    except PermissionError:
+        print("[Error] Permission denied to read this directory.")
+    except FileNotFoundError:
+        print("[Error] The current directory does not exist.")
+    except Exception as e:
+        print(f"[Error] Failed to find duplicate files: {e}")
 
 
 # --- Main Application Loop ---
@@ -256,7 +312,7 @@ def main():
         elif choice == "7":
             categorize_files(current_dir)
         elif choice == "8":
-            find_duplicate_files()
+            find_duplicate_files(current_dir)
         elif choice == "9":
             print("\nExiting Smart File Manager. Goodbye!")
             break
