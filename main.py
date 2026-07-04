@@ -7,6 +7,7 @@ An interactive command-line utility to browse, navigate, and manage files.
 import os
 import sys
 import hashlib
+import shutil
 
 def display_menu(current_dir):
     """
@@ -18,13 +19,17 @@ def display_menu(current_dir):
     print("1) List files in current directory")
     print("2) Navigate to a folder")
     print("3) Go up one directory")
-    print("4) View a file")
+    print("4) View a file/folder")
     print("5) Rename a file")
-    print("6) Delete a file")
-    print("7) Categorize files")
-    print("8) Find duplicate files")
-    print("9) Exit")
+    print("6) Find a file/folder")
+    print("7) Create a file/folder")
+    print("8) Delete a file/folder")
+    print("9) View duplicate files")
+    print("10) Exit")
     print("=" * 50)
+
+# ... (rest of implementation)
+# Need to implement create_item and delete_item...
 
 
 # --- Menu Option Placeholders ---
@@ -96,22 +101,54 @@ def go_up_directory(current_dir):
     return parent_dir
 
 
-def view_file(current_dir):
-    """Display the contents of a text file the user selects."""
-    filename = input("Enter filename to view: ").strip()
-    path = os.path.join(current_dir, filename)
-    if not os.path.isfile(path):
-        print(f"[Error] '{filename}' is not a valid file.")
+def view_item(current_dir):
+    """Searches for a file or folder by name recursively and offers to view/list."""
+    print()
+    name = input("Enter name to view: ").strip()
+    if not name:
+        print("[Error] Name cannot be empty.")
         return
+
+    # Find all matches recursively to handle potential name conflicts
+    matches = []
+    for root, dirs, files in os.walk(current_dir):
+        for item in dirs + files:
+            if item.lower() == name.lower():
+                matches.append(os.path.join(root, item))
+
+    if not matches:
+        print(f"No items found with name '{name}'.")
+        return
+        
+    print(f"\nFound {len(matches)} item(s) matching '{name}':")
+    for i, path in enumerate(matches):
+        print(f"{i+1}) {path}")
+        
+    choice = input("\nEnter number to view/list, or 'q' to cancel: ").strip()
+    if choice.lower() == 'q':
+        return
+        
     try:
-        with open(path, 'r', encoding='utf-8') as f:
-            print(f"\n--- Contents of {filename} ---\n")
-            print(f.read())
-            print(f"\n--- End of {filename} ---")
-    except PermissionError:
-        print("[Error] Permission denied.")
+        idx = int(choice) - 1
+        if 0 <= idx < len(matches):
+            target = matches[idx]
+            
+            if os.path.isfile(target):
+                with open(target, 'r', encoding='utf-8') as f:
+                    print(f"\n--- Contents of {os.path.basename(target)} ---\n")
+                    print(f.read())
+                    print(f"\n--- End of {os.path.basename(target)} ---")
+            elif os.path.isdir(target):
+                print(f"\n--- Contents of Directory: {os.path.basename(target)} ---")
+                with os.scandir(target) as entries:
+                    for entry in entries:
+                        type_str = "[Folder]" if entry.is_dir() else "[File]"
+                        print(f"{type_str} {entry.name}")
+                print("--- End ---")
+        else:
+            print("[Error] Invalid selection.")
     except Exception as e:
-        print(f"[Error] Could not read file: {e}")
+        print(f"[Error] Action failed: {e}")
 
 
 def rename_file(current_dir):
@@ -136,91 +173,121 @@ def rename_file(current_dir):
         print("Renaming cancelled.")
 
 
-def delete_file(current_dir):
-    """Delete a file, but only after showing the filename and requiring the user to type 'yes' to confirm."""
-    filename = input("Enter filename to delete: ").strip()
-    path = os.path.join(current_dir, filename)
-    if not os.path.isfile(path):
-        print(f"[Error] '{filename}' not found.")
-        return
-    confirm = input(f"WARNING: Are you sure you want to delete '{filename}'? Type 'yes' to confirm: ").strip()
-    if confirm == 'yes':
-        try:
-            os.remove(path)
-            print("Deleted successfully.")
-        except Exception as e:
-            print(f"[Error] Deletion failed: {e}")
-    else:
-        print("Deletion cancelled.")
-
-
-
-def get_categorized_files(current_dir):
-    """
-    Scans the directory and returns a dictionary grouping filenames by category.
-    Categories:
-    - "Documents/Text"
-    - "Scripts/Code"
-    - "Images"
-    - "Videos"
-    - "Directories"
-    - "Other"
-    """
-    categories = {
-        "Documents/Text": [],
-        "Scripts/Code": [],
-        "Images": [],
-        "Videos": [],
-        "Directories": [],
-        "Other": []
-    }
-    
-    with os.scandir(current_dir) as entries:
-        for entry in entries:
-            if entry.is_dir():
-                categories["Directories"].append(entry.name)
-            else:
-                _, ext = os.path.splitext(entry.name)
-                ext = ext.lower()
-                if ext in ['.txt', '.doc', '.docx', '.pdf']:
-                    categories["Documents/Text"].append(entry.name)
-                elif ext in ['.py', '.js', '.sh', '.c', '.java']:
-                    categories["Scripts/Code"].append(entry.name)
-                elif ext in ['.jpg', '.png', '.gif', '.bmp']:
-                    categories["Images"].append(entry.name)
-                elif ext in ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv']:
-                    categories["Videos"].append(entry.name)
-                else:
-                    categories["Other"].append(entry.name)
-                    
-    # Sort files within each category case-insensitively for clean display
-    for cat in categories:
-        categories[cat].sort(key=str.lower)
-        
-    return categories
-
-
-def categorize_files(current_dir):
-    """Scan all files in the current directory and group them into categories based on their extensions."""
+def find_item(current_dir):
+    """Searches recursively for a file/folder and offers to view or navigate to it."""
     print()
+    name = input("Enter name to find: ").strip()
+    if not name:
+        print("[Error] Name cannot be empty.")
+        return current_dir
+
+    matches = []
+    for root, dirs, files in os.walk(current_dir):
+        for item in dirs + files:
+            if item.lower() == name.lower():
+                matches.append(os.path.join(root, item))
+
+    if not matches:
+        print(f"No items found with name '{name}'.")
+        return current_dir
+
+    print(f"\nFound {len(matches)} item(s) matching '{name}':")
+    for i, path in enumerate(matches):
+        print(f"{i+1}) {path}")
+        
+    choice = input("\nEnter number to select, or 'q' to cancel: ").strip()
+    if choice.lower() == 'q':
+        return current_dir
+    
     try:
-        categorized = get_categorized_files(current_dir)
-        print("File Categorization Results:")
-        print("-" * 30)
-        for category, files in categorized.items():
-            print(f"[{category}]")
-            if not files:
-                print("  (No items)")
+        idx = int(choice) - 1
+        if 0 <= idx < len(matches):
+            target = matches[idx]
+            
+            if os.path.isdir(target):
+                confirm = input(f"Navigate to directory '{target}'? (y/n): ").lower()
+                if confirm == 'y':
+                    print(f"Successfully navigated to: {target}")
+                    return target
             else:
-                for filename in files:
-                    print(f"  - {filename}")
-            print()
-    except PermissionError:
-        print("[Error] Permission denied to read this directory.")
-    except FileNotFoundError:
-        print("[Error] The current directory does not exist.")
+                confirm = input(f"View file '{target}'? (y/n): ").lower()
+                if confirm == 'y':
+                    with open(target, 'r', encoding='utf-8') as f:
+                        print(f"\n--- Contents of {os.path.basename(target)} ---\n")
+                        print(f.read())
+                        print(f"\n--- End of {os.path.basename(target)} ---")
+        else:
+            print("[Error] Invalid selection.")
     except Exception as e:
-        print(f"[Error] Failed to categorize files: {e}")
+        print(f"[Error] Action failed: {e}")
+        
+    return current_dir
+
+
+
+def create_item(current_dir):
+    """Create a new file or directory."""
+    print()
+    name = input("Enter name for the new file or directory: ").strip()
+    if not name:
+        print("[Error] Name cannot be empty.")
+        return
+    item_type = input("Create as (f)ile or (d)irectory? (f/d): ").lower().strip()
+    path = os.path.join(current_dir, name)
+    try:
+        if item_type == 'f':
+            with open(path, 'w') as f: pass
+            print(f"File '{name}' created.")
+        elif item_type == 'd':
+            os.makedirs(path)
+            print(f"Directory '{name}' created.")
+        else:
+            print("[Error] Invalid type. Use 'f' for file or 'd' for directory.")
+    except Exception as e:
+        print(f"[Error] Creation failed: {e}")
+
+
+def delete_item(current_dir):
+    """Deletes a file or directory, handling ambiguous names by listing all matches."""
+    print()
+    name = input("Enter name to delete: ").strip()
+    
+    # Find all matches recursively to handle potential name conflicts
+    matches = []
+    for root, dirs, files in os.walk(current_dir):
+        for item in dirs + files:
+            if item.lower() == name.lower():
+                matches.append(os.path.join(root, item))
+    
+    if not matches:
+        print(f"No items found with name '{name}'.")
+        return
+        
+    print(f"\nFound {len(matches)} item(s) matching '{name}':")
+    for i, path in enumerate(matches):
+        print(f"{i+1}) {path}")
+        
+    choice = input("\nEnter number to delete, or 'q' to cancel: ").strip()
+    if choice.lower() == 'q':
+        return
+        
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(matches):
+            target = matches[idx]
+            confirm = input(f"Are you sure you want to delete '{target}'? (yes/no): ").strip().lower()
+            if confirm == 'yes':
+                if os.path.isdir(target):
+                    shutil.rmtree(target)
+                else:
+                    os.remove(target)
+                print(f"'{target}' deleted successfully.")
+            else:
+                print("Deletion cancelled.")
+        else:
+            print("[Error] Invalid selection.")
+    except Exception as e:
+        print(f"[Error] Deletion failed: {e}")
 
 
 def calculate_md5(file_path):
@@ -279,6 +346,12 @@ def find_duplicate_files(current_dir):
         print(f"[Error] Failed to find duplicate files: {e}")
 
 
+def exit_program():
+    """Prints a goodbye message and exits the application."""
+    print("\nExiting Smart File Manager. Goodbye!")
+    sys.exit(0)
+
+
 # --- Main Application Loop ---
 
 def main():
@@ -291,12 +364,11 @@ def main():
     while True:
         display_menu(current_dir)
         try:
-            choice = input("Enter your choice (1-9): ").strip()
+            choice = input("Enter your choice (1-10): ").strip()
         except (KeyboardInterrupt, EOFError):
-            print("\nExiting. Goodbye!")
-            sys.exit(0)
+            exit_program()
 
-        # Dispatch user choices to their corresponding handler functions
+        # Dispatch user choices
         if choice == "1":
             list_files(current_dir)
         elif choice == "2":
@@ -304,20 +376,22 @@ def main():
         elif choice == "3":
             current_dir = go_up_directory(current_dir)
         elif choice == "4":
-            view_file(current_dir)
+            view_item(current_dir)
         elif choice == "5":
             rename_file(current_dir)
         elif choice == "6":
-            delete_file(current_dir)
+            current_dir = find_item(current_dir)
         elif choice == "7":
-            categorize_files(current_dir)
+            create_item(current_dir)
         elif choice == "8":
-            find_duplicate_files(current_dir)
+            delete_item(current_dir)
         elif choice == "9":
-            print("\nExiting Smart File Manager. Goodbye!")
-            break
+            find_duplicate_files(current_dir)
+        elif choice == "10":
+            exit_program()
         else:
-            print("\n[Error] Invalid choice. Please enter a number from 1 to 9.")
+            print("\n[Error] Invalid choice. Please enter a number from 1 to 10.")
+
 
 
 if __name__ == "__main__":
