@@ -20,7 +20,7 @@ def display_menu(current_dir):
     print("2) Navigate to a folder")
     print("3) Go up one directory")
     print("4) View a file/folder")
-    print("5) Rename a file")
+    print("5) Rename a file/folder")
     print("6) Find a file/folder")
     print("7) Create a file/folder")
     print("8) Delete a file/folder")
@@ -28,11 +28,7 @@ def display_menu(current_dir):
     print("10) Exit")
     print("=" * 50)
 
-# ... (rest of implementation)
-# Need to implement create_item and delete_item...
 
-
-# --- Menu Option Placeholders ---
 
 def list_files(current_dir):
     """List all files and folders in the current directory with their type clearly shown."""
@@ -152,25 +148,55 @@ def view_item(current_dir):
 
 
 def rename_file(current_dir):
-    """Rename a file, asking for confirmation before proceeding."""
-    filename = input("Enter current filename: ").strip()
-    path = os.path.join(current_dir, filename)
-    if not os.path.isfile(path):
-        print(f"[Error] '{filename}' not found.")
+    """Rename a file or folder, handling ambiguous names by listing all matches."""
+    print()
+    name = input("Enter name to rename: ").strip()
+
+    # Find all matches recursively to handle potential name conflicts
+    matches = []
+    for root, dirs, files in os.walk(current_dir):
+        for item in dirs + files:
+            if item.lower() == name.lower():
+                matches.append(os.path.join(root, item))
+
+    if not matches:
+        print(f"No items found with name '{name}'.")
         return
-    new_name = input("Enter new filename: ").strip()
-    if not new_name:
-        print("[Error] Name cannot be empty.")
+
+    print(f"\nFound {len(matches)} item(s) matching '{name}':")
+    for i, path in enumerate(matches):
+        print(f"{i+1}) {path}")
+
+    choice = input("\nEnter number to rename, or 'q' to cancel: ").strip()
+    if choice.lower() == 'q':
         return
-    confirm = input(f"Rename '{filename}' to '{new_name}'? (y/n): ").lower()
-    if confirm == 'y':
-        try:
-            os.rename(path, os.path.join(current_dir, new_name))
-            print("Renamed successfully.")
-        except Exception as e:
-            print(f"[Error] Rename failed: {e}")
-    else:
-        print("Renaming cancelled.")
+
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(matches):
+            target = matches[idx]
+            parent = os.path.dirname(target)
+            new_name = input(f"Enter new name for '{os.path.basename(target)}': ").strip()
+            if not new_name:
+                print("[Error] Name cannot be empty.")
+                return
+
+            # Check for collision in the parent directory
+            new_path = os.path.join(parent, new_name)
+            if os.path.exists(new_path):
+                print(f"[Error] '{new_name}' already exists in '{parent}'.")
+                return
+
+            confirm = input(f"Rename '{os.path.basename(target)}' to '{new_name}'? (y/n): ").lower()
+            if confirm == 'y':
+                os.rename(target, new_path)
+                print("Renamed successfully.")
+            else:
+                print("Renaming cancelled.")
+        else:
+            print("[Error] Invalid selection.")
+    except Exception as e:
+        print(f"[Error] Rename failed: {e}")
 
 
 def find_item(current_dir):
