@@ -119,14 +119,21 @@ class TestSmartFileManager(unittest.TestCase):
         self.assertIn("Contents of Directory: folder_a", output)
 
 
-    @patch("builtins.input", side_effect=["file1.txt", "new_name.txt", "y"])
+    @patch("builtins.input", side_effect=["file1.txt", "1", "new_name.txt", "y"])
     @patch("sys.stdout", new_callable=io.StringIO)
     def test_rename_file_success(self, mock_stdout, mock_input):
         rename_file(self.test_dir)
         self.assertTrue(os.path.exists(os.path.join(self.test_dir, "new_name.txt")))
         self.assertFalse(os.path.exists(self.file1))
 
-    @patch("builtins.input", side_effect=["file1.txt", "new_name.txt", "n"])
+    @patch("builtins.input", side_effect=["folder_a", "1", "new_folder_name", "y"])
+    @patch("sys.stdout", new_callable=io.StringIO)
+    def test_rename_folder_success(self, mock_stdout, mock_input):
+        rename_file(self.test_dir)
+        self.assertTrue(os.path.exists(os.path.join(self.test_dir, "new_folder_name")))
+        self.assertFalse(os.path.exists(self.sub_dir1))
+
+    @patch("builtins.input", side_effect=["file1.txt", "1", "new_name.txt", "n"])
     @patch("sys.stdout", new_callable=io.StringIO)
     def test_rename_file_cancel(self, mock_stdout, mock_input):
         rename_file(self.test_dir)
