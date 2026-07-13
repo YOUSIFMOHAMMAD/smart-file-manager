@@ -301,8 +301,8 @@ def delete_item(current_dir):
         idx = int(choice) - 1
         if 0 <= idx < len(matches):
             target = matches[idx]
-            confirm = input(f"Are you sure you want to delete '{target}'? (yes/no): ").strip().lower()
-            if confirm == 'yes':
+            confirm = input(f"Are you sure you want to delete '{target}'? (y/n): ").strip().lower()
+            if confirm == 'y':
                 if os.path.isdir(target):
                     shutil.rmtree(target)
                 else:

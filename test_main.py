@@ -159,7 +159,7 @@ class TestSmartFileManager(unittest.TestCase):
         create_item(self.test_dir)
         self.assertTrue(os.path.isdir(os.path.join(self.test_dir, "new_dir")))
 
-    @patch("builtins.input", side_effect=["folder_a", "1", "yes"])
+    @patch("builtins.input", side_effect=["folder_a", "1", "y"])
     @patch("sys.stdout", new_callable=io.StringIO)
     def test_delete_item_folder(self, mock_stdout, mock_input):
         delete_item(self.test_dir)
